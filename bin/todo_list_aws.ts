@@ -3,6 +3,17 @@ import * as cdk from 'aws-cdk-lib';
 import { TodoListAwsStack } from '../lib/todo_list_aws-stack';
 
 const app = new cdk.App();
+
+const env: cdk.Environment = {
+ account: process.env.CDK_DEFAULT_ACCOUNT,
+ region:process.env.CDK_DEFAULT_REGION
+}
+
+const tags ={
+  cost: "Treinamento - AWS",
+  team: "DEVs T2M"
+}
+
 new TodoListAwsStack(app, 'TodoListAwsStack', {
   /* If you don't specify 'env', this stack will be environment-agnostic.
    * Account/Region-dependent features and context lookups will not work,
