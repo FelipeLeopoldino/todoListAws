@@ -1,31 +1,29 @@
 #!/usr/bin/env node
-import * as cdk from 'aws-cdk-lib';
-import { TodoListAwsStack } from '../lib/todo_list_aws-stack';
+import * as cdk from "aws-cdk-lib";
+import { TodoTaskAppStack } from "../lib/todoTaskApp-stack";
+import { TodoListApiStack } from "../lib/todoListApi-stack";
 
 const app = new cdk.App();
 
 const env: cdk.Environment = {
- account: process.env.CDK_DEFAULT_ACCOUNT,
- region:process.env.CDK_DEFAULT_REGION
-}
+  account: process.env.CDK_DEFAULT_ACCOUNT,
+  region: process.env.CDK_DEFAULT_REGION,
+};
 
-const tags ={
+const tags = {
   cost: "Treinamento - AWS",
-  team: "DEVs T2M"
-}
+  team: "DEVs T2M",
+};
 
-new TodoListAwsStack(app, 'TodoListAwsStack', {
-  /* If you don't specify 'env', this stack will be environment-agnostic.
-   * Account/Region-dependent features and context lookups will not work,
-   * but a single synthesized template can be deployed anywhere. */
-
-  /* Uncomment the next line to specialize this stack for the AWS Account
-   * and Region that are implied by the current CLI configuration. */
-  // env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
-
-  /* Uncomment the next line if you know exactly what Account and Region you
-   * want to deploy the stack to. */
-  // env: { account: '123456789012', region: 'us-east-1' },
-
-  /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
+const todoTaskAppStack = new TodoTaskAppStack(app, "TodoTaskAppStack", {
+  env: env,
+  tags: tags,
 });
+
+const todoListApiStack = new TodoListApiStack(app, "TodoListApiStack", {
+  lambdaTodoTaskApp: todoTaskAppStack.taskHandler,
+  env: env,
+  tags: tags,
+});
+
+todoListApiStack.addDependency(todoTaskAppStack);
