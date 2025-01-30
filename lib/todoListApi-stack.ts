@@ -15,6 +15,7 @@ export class TodoListApiStack extends cdk.Stack {
     const logGroup = new cwlogs.LogGroup(this, "TodoListApiLogs");
     const api = new apiGateway.RestApi(this, "TodoListApi", {
       restApiName: "TodoListApi",
+      cloudWatchRole: true,
       deployOptions: {
         accessLogDestination: new apiGateway.LogGroupLogDestination(logGroup),
         accessLogFormat: apiGateway.AccessLogFormat.jsonWithStandardFields({
