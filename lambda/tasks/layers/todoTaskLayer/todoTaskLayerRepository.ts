@@ -89,7 +89,7 @@ export class TodoTaksRepository {
         TableName: this.taskDdb,
         Key: {
           pk: pk,
-          email: email,
+          sk: email,
         },
         ConditionExpression: "attribute_exists(pk)",
         UpdateExpression: "SET taskStatus = :taskStatus, archived = :archived",
@@ -111,7 +111,7 @@ export class TodoTaksRepository {
         TableName: this.taskDdb,
         Key: {
           pk: pk,
-          email: email,
+          sk: email,
         },
         ReturnValues: "ALL_OLD",
       })
