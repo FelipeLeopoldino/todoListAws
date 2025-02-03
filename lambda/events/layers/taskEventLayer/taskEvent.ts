@@ -1,3 +1,11 @@
+export interface SnsEvelope {
+  requestId: string;
+  requestLambdaId: string;
+  origin: string;
+  date: number;
+  content: string;
+}
+
 export enum EventTypeEnum {
   BATCH_TASK = "BATCH_TASK",
   SINGLE_TASK = "SINGLE_TASK",

@@ -8,6 +8,8 @@ import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 
 export class TodoListEventStack extends cdk.Stack {
+  eventTopicSns: sns.Topic;
+
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
@@ -69,11 +71,11 @@ export class TodoListEventStack extends cdk.Stack {
 
     eventDb.grantWriteData(taskEventFunction);
 
-    const eventTopicSns = new sns.Topic(this, "EventTopicSns", {
+    this.eventTopicSns = new sns.Topic(this, "EventTopicSns", {
       topicName: "todo-events",
       displayName: "Todo List Events",
     });
 
-    eventTopicSns.addSubscription(new snsSubscriptions.LambdaSubscription(taskEventFunction));
+    this.eventTopicSns.addSubscription(new snsSubscriptions.LambdaSubscription(taskEventFunction));
   }
 }

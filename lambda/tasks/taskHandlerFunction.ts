@@ -1,5 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 import { DocumentClient } from "aws-sdk/clients/dynamodb";
+import { SNS } from "aws-sdk";
 import {
   TodoTaksRepository,
   TaskStatusEnum,
@@ -9,10 +10,18 @@ import {
   TodoTaskPostRequest,
   TodoTaskPutRequest,
 } from "./layers/todoTaskDtoLayer/todoTaskDtoLayer";
+import {
+  ActionTypeEnum,
+  EventTypeEnum,
+  SnsEvelope,
+  TodoTaskEventDto,
+} from "../events/layers/taskEventLayer/taskEvent";
 
 const taskDdbTableName = process.env.TASK_DDB!;
+const snsTopicArn = process.env.SNS_TOPIC_ARN!;
 const ddbClient = new DocumentClient();
 const taskRepository = new TodoTaksRepository(ddbClient, taskDdbTableName);
+const snsClient = new SNS();
 
 export async function handler(
   event: APIGatewayProxyEvent,
@@ -70,6 +79,20 @@ export async function handler(
       const taskModel = buildTask(taskRequest);
       const result = await taskRepository.createTask(taskModel);
 
+      await publishToSns(
+        ActionTypeEnum.INSERT,
+        EventTypeEnum.SINGLE_TASK,
+        result.assingedBy.assignedByName,
+        result.assingedBy.email,
+        result.pk,
+        result.owner.ownerName,
+        result.owner.email,
+        result.title,
+        apiRequestId,
+        lambda,
+        context.functionName
+      );
+
       return {
         statusCode: 201,
         body: JSON.stringify(result),
@@ -98,6 +121,20 @@ export async function handler(
           newStatus
         );
 
+        await publishToSns(
+          ActionTypeEnum.UPDATE,
+          EventTypeEnum.SINGLE_TASK,
+          result.assingedBy.assignedByName,
+          result.assingedBy.email,
+          result.pk,
+          result.owner.ownerName,
+          result.owner.email,
+          result.title,
+          apiRequestId,
+          lambda,
+          context.functionName
+        );
+
         return {
           statusCode: 204,
           body: JSON.stringify({
@@ -117,6 +154,20 @@ export async function handler(
     if (httpMethod === "DELETE") {
       try {
         const result = await taskRepository.deleteTask(emailPathParameter, idPathParameter);
+
+        await publishToSns(
+          ActionTypeEnum.DELETE,
+          EventTypeEnum.SINGLE_TASK,
+          result.assingedBy.assignedByName,
+          result.assingedBy.email,
+          result.pk,
+          result.owner.ownerName,
+          result.owner.email,
+          result.title,
+          apiRequestId,
+          lambda,
+          context.functionName
+        );
 
         return {
           statusCode: 204,
@@ -166,4 +217,48 @@ function buildTask(task: TodoTaskPostRequest): TodoTaskModelDb {
 
 function generatUniqueId() {
   return `TID-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+}
+
+async function publishToSns(
+  actionType: ActionTypeEnum,
+  eventType: EventTypeEnum,
+  creatorName: string,
+  creatorEmail: string,
+  taskId: string,
+  ownerName: string,
+  ownerEmail: string,
+  title: string,
+  requestId: string,
+  requestLambdaId: string,
+  functionName: string
+): Promise<any> {
+  const todoTaskEventDto: TodoTaskEventDto = {
+    actionType: actionType,
+    eventType: eventType,
+    createdBy: {
+      createdName: creatorName,
+      email: creatorEmail,
+    },
+    taskId: taskId,
+    owner: {
+      ownerName: ownerName,
+      email: ownerEmail,
+    },
+    title: title,
+  };
+
+  const SnsEvelope: SnsEvelope = {
+    requestId: requestId,
+    requestLambdaId: requestLambdaId,
+    origin: functionName,
+    date: Date.now(),
+    content: JSON.stringify(todoTaskEventDto),
+  };
+
+  return snsClient
+    .publish({
+      TopicArn: snsTopicArn,
+      Message: JSON.stringify(SnsEvelope),
+    })
+    .promise();
 }
