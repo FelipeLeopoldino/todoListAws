@@ -5,6 +5,7 @@ import { TodoListApiStack } from "../lib/todoListApi-stack";
 import { TodoListLayersStack } from "../lib/todoListLayers-stack";
 import { TodoListEventStack } from "../lib/todoListEvent-stack";
 import { TodoListEventLayerStack } from "../lib/todoListEventLayer-stack";
+import { TodoNotifyStack } from "../lib/todoNotify-stack";
 
 const app = new cdk.App();
 
@@ -33,6 +34,14 @@ const todoListEventStack = new TodoListEventStack(app, "TodoListEventStack", {
   tags: tags,
 });
 todoListEventStack.addDependency(todoListEventLayerStack);
+
+const todoListNotifyStack = new TodoNotifyStack(app, "TodoNotifyStack", {
+  env: env,
+  tags: tags,
+  snsTopic: todoListEventStack.eventTopicSns,
+});
+todoListNotifyStack.addDependency(todoListEventStack);
+todoListNotifyStack.addDependency(todoListLayersStack);
 
 const todoTaskAppStack = new TodoTaskAppStack(app, "TodoTaskAppStack", {
   env: env,
