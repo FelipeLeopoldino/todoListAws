@@ -1,13 +1,12 @@
 import * as cdk from "aws-cdk-lib";
-import { Construct } from "constructs";
 import * as apiGateway from "aws-cdk-lib/aws-apigateway";
 import * as cwlogs from "aws-cdk-lib/aws-logs";
-import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
-import { title } from "process";
-import { kMaxLength } from "buffer";
+import * as lambdaNodeJs from "aws-cdk-lib/aws-lambda-nodejs";
+import { Construct } from "constructs";
 
 export interface TodoListApiStackProps extends cdk.StackProps {
-  lambdaTodoTaskApp: lambdaNodejs.NodejsFunction;
+  lambdaTodoTaskApp: lambdaNodeJs.NodejsFunction;
+  s3UploadUrlFunction: lambdaNodeJs.NodejsFunction;
 }
 
 export class TodoListApiStack extends cdk.Stack {
@@ -21,8 +20,8 @@ export class TodoListApiStack extends cdk.Stack {
       deployOptions: {
         accessLogDestination: new apiGateway.LogGroupLogDestination(logGroup),
         accessLogFormat: apiGateway.AccessLogFormat.jsonWithStandardFields({
-          caller: true,
           ip: true,
+          caller: true,
           httpMethod: true,
           protocol: true,
           requestTime: true,
@@ -35,19 +34,17 @@ export class TodoListApiStack extends cdk.Stack {
     });
 
     const todoTaskAppIntegration = new apiGateway.LambdaIntegration(props.lambdaTodoTaskApp);
-
     const apiTaskResource = api.root.addResource("tasks");
-    const apiTaskWithEmailAndId = apiTaskResource.addResource("{email}").addResource("{id}");
 
     //GET /tasks
-    //GET /tasks?email=email@gamil.com
-    //GET /tasks?email=email@gamil.com&tasks=tid-123
+    //GET /tasks?email=email@gmail.com
+    //GET /tasks?email=email@gmail.com&taskid=tid-123
     apiTaskResource.addMethod("GET", todoTaskAppIntegration);
 
     //POST /tasks
-    const taskRequestValidator = new apiGateway.RequestValidator(this, "TaskRequestValidator", {
+    const taskResquestValidator = new apiGateway.RequestValidator(this, "TaskRequestValidator", {
       restApi: api,
-      requestValidatorName: "TaskRequestValidator",
+      requestValidatorName: "Task Request Validator",
       validateRequestBody: true,
     });
 
@@ -64,8 +61,8 @@ export class TodoListApiStack extends cdk.Stack {
           },
           description: {
             type: apiGateway.JsonSchemaType.STRING,
-            maxLength: 250,
-            minLength: 5,
+            maxLength: 150,
+            minLength: 10,
           },
           deadLine: {
             type: apiGateway.JsonSchemaType.STRING,
@@ -73,36 +70,36 @@ export class TodoListApiStack extends cdk.Stack {
           owner: {
             type: apiGateway.JsonSchemaType.OBJECT,
             properties: {
-              email: {
-                type: apiGateway.JsonSchemaType.STRING,
-                maxLength: 100,
-                minLength: 10,
-                pattern: "^[a-z0-9._%+-]+@[a-z0-9.-]+.[a-z]{2,4}$",
-              },
               name: {
                 type: apiGateway.JsonSchemaType.STRING,
-                maxLength: 50,
                 minLength: 3,
+                maxLength: 50,
+              },
+              email: {
+                type: apiGateway.JsonSchemaType.STRING,
+                minLength: 5,
+                maxLength: 100,
+                format: "email",
               },
             },
-            required: ["email", "name"],
+            required: ["name", "email"],
           },
           assignedBy: {
             type: apiGateway.JsonSchemaType.OBJECT,
             properties: {
-              email: {
-                type: apiGateway.JsonSchemaType.STRING,
-                maxLength: 100,
-                minLength: 10,
-                pattern: "^[a-z0-9._%+-]+@[a-z0-9.-]+.[a-z]{2,4}$",
-              },
               name: {
                 type: apiGateway.JsonSchemaType.STRING,
-                maxLength: 50,
                 minLength: 3,
+                maxLength: 50,
+              },
+              email: {
+                type: apiGateway.JsonSchemaType.STRING,
+                minLength: 5,
+                maxLength: 100,
+                pattern: "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$",
               },
             },
-            required: ["email", "name"],
+            required: ["name", "email"],
           },
         },
         required: ["title", "owner", "assignedBy"],
@@ -110,17 +107,18 @@ export class TodoListApiStack extends cdk.Stack {
     });
 
     apiTaskResource.addMethod("POST", todoTaskAppIntegration, {
-      requestValidator: taskRequestValidator,
+      requestValidator: taskResquestValidator,
       requestModels: {
         "application/json": taskModel,
       },
     });
 
-    //PUT /tasks/{email}/{id}
+    const apiTaskWithEmailAndId = apiTaskResource.addResource("{email}").addResource("{id}");
 
+    //PUT /tasks/{email}/{id}
     const taskPutValidator = new apiGateway.RequestValidator(this, "TaskPutValidator", {
       restApi: api,
-      requestValidatorName: "TaskPutValidator",
+      requestValidatorName: "Task Put Validator",
       validateRequestBody: true,
     });
 
@@ -138,6 +136,7 @@ export class TodoListApiStack extends cdk.Stack {
         required: ["newStatus"],
       },
     });
+
     apiTaskWithEmailAndId.addMethod("PUT", todoTaskAppIntegration, {
       requestValidator: taskPutValidator,
       requestModels: {
@@ -147,5 +146,12 @@ export class TodoListApiStack extends cdk.Stack {
 
     //DELETE /tasks/{email}/{id}
     apiTaskWithEmailAndId.addMethod("DELETE", todoTaskAppIntegration);
+
+    //GET /tasks/upload-file-url
+    const lambdaUrlUploadFileIntegration = new apiGateway.LambdaIntegration(
+      props.s3UploadUrlFunction
+    );
+
+    apiTaskResource.addResource("upload-file-url").addMethod("GET", lambdaUrlUploadFileIntegration);
   }
 }

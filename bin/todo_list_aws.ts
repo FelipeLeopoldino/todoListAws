@@ -52,6 +52,7 @@ todoTaskAppStack.addDependency(todoListLayersStack);
 
 const todoListApiStack = new TodoListApiStack(app, "TodoListApiStack", {
   lambdaTodoTaskApp: todoTaskAppStack.taskHandler,
+  s3UploadUrlFunction: todoTaskAppStack.s3UploadUrlFunction,
   env: env,
   tags: tags,
 });
