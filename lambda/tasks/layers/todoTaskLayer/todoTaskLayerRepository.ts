@@ -27,17 +27,17 @@ export interface TodoTaskModelDb {
 
 export class TodoTaksRepository {
   private ddbClient: DocumentClient;
-  private taskDdb: string;
+  private TasksDdb: string;
 
-  constructor(ddbClient: DocumentClient, taskDdb: string) {
+  constructor(ddbClient: DocumentClient, TasksDdb: string) {
     this.ddbClient = ddbClient;
-    this.taskDdb = taskDdb;
+    this.TasksDdb = TasksDdb;
   }
 
   async getAllTasks() {
     const data = await this.ddbClient
       .scan({
-        TableName: this.taskDdb,
+        TableName: this.TasksDdb,
       })
       .promise();
 
@@ -47,7 +47,7 @@ export class TodoTaksRepository {
   async getTasksByEmail(email: string) {
     const data = await this.ddbClient
       .scan({
-        TableName: this.taskDdb,
+        TableName: this.TasksDdb,
         FilterExpression: "email = :email",
         ExpressionAttributeValues: {
           ":email": email,
@@ -61,7 +61,7 @@ export class TodoTaksRepository {
   async getTaskByPkAndEmail(email: string, pk: string) {
     const data = await this.ddbClient
       .get({
-        TableName: this.taskDdb,
+        TableName: this.TasksDdb,
         Key: {
           pk: pk,
           email: email,
@@ -76,7 +76,7 @@ export class TodoTaksRepository {
   async createTask(taskModel: TodoTaskModelDb): Promise<TodoTaskModelDb> {
     await this.ddbClient
       .put({
-        TableName: this.taskDdb,
+        TableName: this.TasksDdb,
         Item: taskModel,
       })
       .promise();
@@ -86,7 +86,7 @@ export class TodoTaksRepository {
   async updateTask(email: string, pk: string, taskStatus: TaskStatusEnum) {
     const data = await this.ddbClient
       .update({
-        TableName: this.taskDdb,
+        TableName: this.TasksDdb,
         Key: {
           pk: pk,
           sk: email,
@@ -108,7 +108,7 @@ export class TodoTaksRepository {
   async deleteTask(email: string, pk: string) {
     const data = await this.ddbClient
       .delete({
-        TableName: this.taskDdb,
+        TableName: this.TasksDdb,
         Key: {
           pk: pk,
           sk: email,
@@ -119,5 +119,24 @@ export class TodoTaksRepository {
 
     if (data.Attributes) return data.Attributes as TodoTaskModelDb;
     throw new Error("Task not found");
+  }
+
+  async createBatchTask(taskModel: TodoTaskModelDb[]): Promise<TodoTaskModelDb[]> {
+    const putRequest = taskModel.map((task) => {
+      return {
+        PutRequest: {
+          Item: task,
+        },
+      };
+    });
+
+    const params = {
+      RequestItems: {
+        [this.TasksDdb]: putRequest,
+      },
+    };
+
+    await this.ddbClient.batchWrite(params).promise();
+    return taskModel;
   }
 }

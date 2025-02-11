@@ -17,10 +17,10 @@ import {
   TodoTaskEventDto,
 } from "../events/layers/taskEventLayer/taskEvent";
 
-const taskDdbTableName = process.env.TASK_DDB!;
+const TasksDdbTableName = process.env.TASK_DDB!;
 const snsTopicArn = process.env.SNS_TOPIC_ARN!;
 const ddbClient = new DocumentClient();
-const taskRepository = new TodoTaksRepository(ddbClient, taskDdbTableName);
+const taskRepository = new TodoTaksRepository(ddbClient, TasksDdbTableName);
 const snsClient = new SNS();
 
 export async function handler(

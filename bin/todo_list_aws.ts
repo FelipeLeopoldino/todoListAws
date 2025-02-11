@@ -49,6 +49,7 @@ const todoTaskAppStack = new TodoTaskAppStack(app, "TodoTaskAppStack", {
   snsTopic: todoListEventStack.eventTopicSns,
 });
 todoTaskAppStack.addDependency(todoListLayersStack);
+todoTaskAppStack.addDependency(todoListEventStack);
 
 const todoListApiStack = new TodoListApiStack(app, "TodoListApiStack", {
   lambdaTodoTaskApp: todoTaskAppStack.taskHandler,
