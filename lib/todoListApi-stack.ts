@@ -184,7 +184,7 @@ export class TodoListApiStack extends cdk.Stack {
   private createCognitoAuth() {
     //UserPool
     this.userBasicPool = new cognito.UserPool(this, "UserBasicPool", {
-      userPoolName: "UserBasicPool",
+      userPoolName: `UserBasicPool-${this.account}`,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       selfSignUpEnabled: true,
       signInAliases: {
@@ -223,7 +223,7 @@ export class TodoListApiStack extends cdk.Stack {
 
     this.userBasicPool.addDomain("UserBasicDomain", {
       cognitoDomain: {
-        domainPrefix: "aj-user-service",
+        domainPrefix: "cf-user-service",
       },
     });
 
@@ -311,7 +311,7 @@ export class TodoListApiStack extends cdk.Stack {
 
     this.adminPool.addDomain("AdminDomain", {
       cognitoDomain: {
-        domainPrefix: "aj-admin-domain",
+        domainPrefix: "cf-admin-domain",
       },
     });
 
