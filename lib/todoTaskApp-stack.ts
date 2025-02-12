@@ -121,7 +121,7 @@ export class TodoTaskAppStack extends cdk.Stack {
     // Criação de bucket S3 para importação em lote de tarefas
     // Nome do bucket gerado dinamicamente com base na conta e região AWS
     const s3Bucket = new s3.Bucket(this, "BatchTasksBucket", {
-      bucketName: `batch-tasks-bucket-aj-${this.account}-${this.region}`,
+      bucketName: `batch-tasks-bucket-cf-${this.account}-${this.region}`,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
