@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 import { DocumentClient } from "aws-sdk/clients/dynamodb";
-import { SNS } from "aws-sdk";
+import { CognitoIdentityServiceProvider, SNS } from "aws-sdk";
 import {
   TodoTaksRepository,
   TaskStatusEnum,
@@ -16,12 +16,15 @@ import {
   SnsEvelope,
   TodoTaskEventDto,
 } from "../events/layers/taskEventLayer/taskEvent";
+import { AuthService } from "../auth/layers/authLayer/auth";
 
 const TasksDdbTableName = process.env.TASK_DDB!;
 const snsTopicArn = process.env.SNS_TOPIC_ARN!;
 const ddbClient = new DocumentClient();
 const taskRepository = new TodoTaksRepository(ddbClient, TasksDdbTableName);
 const snsClient = new SNS();
+const cognitoIdentityServiceProvider = new CognitoIdentityServiceProvider();
+const authService = new AuthService(cognitoIdentityServiceProvider);
 
 export async function handler(
   event: APIGatewayProxyEvent,
@@ -30,6 +33,8 @@ export async function handler(
   const apiRequestId = event.requestContext.resourceId;
   const lambda = context.awsRequestId;
   const httpMethod = event.httpMethod;
+  const userEmail = await authService.getUserEmail(event.requestContext.authorizer);
+  const isAdmin = authService.isAdminUser(event.requestContext.authorizer);
 
   console.log(`API RequestId: ${apiRequestId} - Lambda RequestId: ${lambda}`);
   console.log(JSON.stringify(event));
@@ -39,6 +44,15 @@ export async function handler(
     const taskIdParameter = event.queryStringParameters?.taskid;
 
     if (emailParameter) {
+      if (emailParameter !== userEmail && !isAdmin) {
+        return {
+          statusCode: 403,
+          body: JSON.stringify({
+            message: "Forbidden",
+          }),
+        };
+      }
+
       if (taskIdParameter) {
         try {
           const result = await taskRepository.getTaskByPkAndEmail(emailParameter, taskIdParameter);
@@ -64,6 +78,15 @@ export async function handler(
       };
     }
 
+    if (!isAdmin) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({
+          message: "Forbidden",
+        }),
+      };
+    }
+
     const result = await taskRepository.getAllTasks();
     return {
       statusCode: 200,
@@ -77,6 +100,16 @@ export async function handler(
     try {
       const taskRequest = JSON.parse(event.body!) as TodoTaskPostRequest;
       const taskModel = buildTask(taskRequest);
+
+      if (taskModel.owner.email !== userEmail && !isAdmin) {
+        return {
+          statusCode: 403,
+          body: JSON.stringify({
+            message: "Forbidden",
+          }),
+        };
+      }
+
       const result = await taskRepository.createTask(taskModel);
 
       await publishToSns(
@@ -109,6 +142,15 @@ export async function handler(
   if (event.resource === "/tasks/{email}/{id}") {
     const emailPathParameter = event.pathParameters!.email as string;
     const idPathParameter = event.pathParameters!.id as string;
+
+    if (emailPathParameter !== userEmail && !isAdmin) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({
+          message: "Forbidden",
+        }),
+      };
+    }
 
     if (httpMethod === "PUT") {
       const statusRequest = JSON.parse(event.body!) as TodoTaskPutRequest;

@@ -20,6 +20,16 @@ export class TodoTaskAppStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: TodoTaskAppStackProps) {
     super(scope, id, props);
 
+    const authTaskHandler = ssm.StringParameter.valueForStringParameter(
+      this,
+      "AuthLayerVersionArn"
+    );
+    const authLayer = lambda.LayerVersion.fromLayerVersionArn(
+      this,
+      "AuthLayerVersionArn",
+      authTaskHandler
+    );
+
     const todoTaskLayerVersionArn = ssm.StringParameter.valueForStringParameter(
       this,
       "TodoTaskLayerVersionArn"
@@ -70,10 +80,21 @@ export class TodoTaskAppStack extends cdk.Stack {
         TASK_DDB: taskTableDb.tableName,
         SNS_TOPIC_ARN: props.snsTopic.topicArn,
       },
-      layers: [todoTaskLayer, todoTaskDtoLayer],
+      layers: [todoTaskLayer, todoTaskDtoLayer, authLayer],
       tracing: lambda.Tracing.ACTIVE,
       insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_119_0,
     });
+
+    const taskHandlerCognitoPolice = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ["cognito-idp:AdminGetUser"],
+      resources: [
+        "arn:aws:cognito-idp:us-east-1:160885296058:userpool/us-east-1_4Xbzoyyte",
+        "arn:aws:cognito-idp:us-east-1:160885296058:userpool/us-east-1_BFM2UjTR0",
+      ],
+    });
+
+    this.taskHandler.addToRolePolicy(taskHandlerCognitoPolice);
 
     taskTableDb.grantReadWriteData(this.taskHandler);
     props.snsTopic.grantPublish(this.taskHandler);
