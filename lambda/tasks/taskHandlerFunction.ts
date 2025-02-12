@@ -18,6 +18,9 @@ import {
 } from "../events/layers/taskEventLayer/taskEvent";
 import { AuthService } from "../auth/layers/authLayer/auth";
 
+/**
+ * Variáveis de ambiente e inicialização de clientes
+ */
 const TasksDdbTableName = process.env.TASK_DDB!;
 const snsTopicArn = process.env.SNS_TOPIC_ARN!;
 const ddbClient = new DocumentClient();
@@ -26,6 +29,12 @@ const snsClient = new SNS();
 const cognitoIdentityServiceProvider = new CognitoIdentityServiceProvider();
 const authService = new AuthService(cognitoIdentityServiceProvider);
 
+/**
+ * Handler principal da função Lambda
+ * Processa requisições HTTP para gerenciamento de tarefas
+ * @param event Evento do API Gateway
+ * @param context Contexto da função Lambda
+ */
 export async function handler(
   event: APIGatewayProxyEvent,
   context: Context
@@ -39,6 +48,10 @@ export async function handler(
   console.log(`API RequestId: ${apiRequestId} - Lambda RequestId: ${lambda}`);
   console.log(JSON.stringify(event));
 
+  /**
+   * GET - Busca tarefas
+   * Permite buscar todas as tarefas ou filtrar por email/taskId
+   */
   if (httpMethod === "GET") {
     const emailParameter = event.queryStringParameters?.email;
     const taskIdParameter = event.queryStringParameters?.taskid;
@@ -96,6 +109,10 @@ export async function handler(
     };
   }
 
+  /**
+   * POST - Cria uma nova tarefa
+   * Valida permissões e publica evento no SNS após criação
+   */
   if (httpMethod === "POST") {
     try {
       const taskRequest = JSON.parse(event.body!) as TodoTaskPostRequest;
@@ -139,6 +156,10 @@ export async function handler(
     }
   }
 
+  /**
+   * Operações em tarefas específicas (PUT/DELETE)
+   * Atualiza status ou remove tarefas por email/id
+   */
   if (event.resource === "/tasks/{email}/{id}") {
     const emailPathParameter = event.pathParameters!.email as string;
     const idPathParameter = event.pathParameters!.id as string;
@@ -233,6 +254,11 @@ export async function handler(
   };
 }
 
+/**
+ * Constrói objeto de tarefa a partir da requisição
+ * @param task Dados da requisição de criação de tarefa
+ * @returns Objeto TodoTaskModelDb formatado
+ */
 function buildTask(task: TodoTaskPostRequest): TodoTaskModelDb {
   const timestamp = Date.now();
   const pk = generatUniqueId();
@@ -257,10 +283,28 @@ function buildTask(task: TodoTaskPostRequest): TodoTaskModelDb {
   };
 }
 
+/**
+ * Gera ID único para tarefas
+ * @returns String no formato TID-timestamp-random
+ */
 function generatUniqueId() {
   return `TID-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 }
 
+/**
+ * Publica eventos de tarefa no SNS
+ * @param actionType Tipo de ação (INSERT/UPDATE/DELETE)
+ * @param eventType Tipo do evento
+ * @param creatorName Nome do criador
+ * @param creatorEmail Email do criador
+ * @param taskId ID da tarefa
+ * @param ownerName Nome do proprietário
+ * @param ownerEmail Email do proprietário
+ * @param title Título da tarefa
+ * @param requestId ID da requisição
+ * @param requestLambdaId ID da execução Lambda
+ * @param functionName Nome da função
+ */
 async function publishToSns(
   actionType: ActionTypeEnum,
   eventType: EventTypeEnum,

@@ -6,7 +6,13 @@ import * as cognito from "aws-cdk-lib/aws-cognito";
 import { Construct } from "constructs";
 
 export interface TodoListApiStackProps extends cdk.StackProps {
+  /**
+   * A função Lambda que gerencia as tarefas do TODO.
+   */
   lambdaTodoTaskApp: lambdaNodeJs.NodejsFunction;
+  /**
+   * A função Lambda que gera URLs pré-assinadas para upload de arquivos para o S3.
+   */
   s3UploadUrlFunction: lambdaNodeJs.NodejsFunction;
 }
 
@@ -21,7 +27,10 @@ export class TodoListApiStack extends cdk.Stack {
 
     this.createCognitoAuth();
 
+    // Cria um grupo de logs para a API.
     const logGroup = new cwlogs.LogGroup(this, "TodoListApiLogs");
+
+    // Cria a API REST.
     const api = new apiGateway.RestApi(this, "TodoListApi", {
       restApiName: "TodoListApi",
       cloudWatchRole: true,
@@ -44,6 +53,7 @@ export class TodoListApiStack extends cdk.Stack {
     const todoTaskAppIntegration = new apiGateway.LambdaIntegration(props.lambdaTodoTaskApp);
     const apiTaskResource = api.root.addResource("tasks");
 
+    // Configura o autorizador para as rotas de tarefas.
     const taskAuthorizerOption = {
       authorizer: this.taskAuthorizer,
       authorizationType: apiGateway.AuthorizationType.COGNITO,
@@ -56,12 +66,14 @@ export class TodoListApiStack extends cdk.Stack {
     apiTaskResource.addMethod("GET", todoTaskAppIntegration, taskAuthorizerOption);
 
     //POST /tasks
+    // Cria um validador de requisições para o método POST.
     const taskResquestValidator = new apiGateway.RequestValidator(this, "TaskRequestValidator", {
       restApi: api,
       requestValidatorName: "Task Request Validator",
       validateRequestBody: true,
     });
 
+    // Define o modelo de dados para a requisição POST.
     const taskModel = new apiGateway.Model(this, "TaskModel", {
       modelName: "TaskModel",
       restApi: api,
@@ -133,6 +145,7 @@ export class TodoListApiStack extends cdk.Stack {
     const apiTaskWithEmailAndId = apiTaskResource.addResource("{email}").addResource("{id}");
 
     //PUT /tasks/{email}/{id}
+    // Configura a validação e o modelo para a requisição PUT.
     const taskPutValidator = new apiGateway.RequestValidator(this, "TaskPutValidator", {
       restApi: api,
       requestValidatorName: "Task Put Validator",
@@ -172,6 +185,7 @@ export class TodoListApiStack extends cdk.Stack {
       props.s3UploadUrlFunction
     );
 
+    // Configura a rota para gerar URLs de upload.
     apiTaskResource
       .addResource("upload-file-url")
       .addMethod("GET", lambdaUrlUploadFileIntegration, {
@@ -181,8 +195,12 @@ export class TodoListApiStack extends cdk.Stack {
       });
   }
 
+
+  /**
+   * Cria os recursos do Cognito para autenticação e autorização.
+   */
   private createCognitoAuth() {
-    //UserPool
+    //UserPool - Cria o pool de usuários básico.
     this.userBasicPool = new cognito.UserPool(this, "UserBasicPool", {
       userPoolName: `UserBasicPool-${this.account}`,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -270,7 +288,7 @@ export class TodoListApiStack extends cdk.Stack {
       },
     });
 
-    //AdminPool
+    //AdminPool - Cria o pool de usuários administradores.
     this.adminPool = new cognito.UserPool(this, "AdminPool", {
       userPoolName: "AdminPool",
       removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -338,12 +356,13 @@ export class TodoListApiStack extends cdk.Stack {
       },
     });
 
-    //Authorizer
+    //Authorizer - Cria o autorizador para as tarefas.
     this.taskAuthorizer = new apiGateway.CognitoUserPoolsAuthorizer(this, "TaskAuthorizer", {
       authorizerName: "TaskAuthorizer",
       cognitoUserPools: [this.userBasicPool, this.adminPool],
     });
 
+    // Cria o autorizador para as tarefas de administração.
     this.adminTaskAuthorizer = new apiGateway.CognitoUserPoolsAuthorizer(
       this,
       "AdminTaskAuthorizer",
